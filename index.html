@@ -827,7 +827,37 @@
 
     ];
 
-    let currentQuestion = null;
+        let usedQuestions = [];
+
+        function generateQuestion() {
+            if (usedQuestions.length === questions.length) {
+                alert("All questions have been used.");
+                return;
+            }
+
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * questions.length);
+            } while (usedQuestions.includes(randomIndex));
+
+            usedQuestions.push(randomIndex);
+
+            document.getElementById("question").innerText = questions[randomIndex].question;
+            document.getElementById("answer").innerText = "";
+        }  
+  
+        function revealAnswer() {
+            if (usedQuestions.length === 0) {
+                alert("Please generate a question first.");
+                return;
+            }
+
+            const lastQuestionIndex = usedQuestions[usedQuestions.length - 1];
+            document.getElementById("answer").innerText = questions[lastQuestionIndex].answer;
+        }
+
+  
+  <!--  let currentQuestion = null;
 
     function generateQuestion() {
         const randomIndex = Math.floor(Math.random() * questions.length);
@@ -843,6 +873,8 @@
             document.getElementById("answer").innerHTML = "Please generate a question first.";
         }
     }
+  -->
+
 </script>
 
 </body>
