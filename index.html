@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NextCast Link Player (Fullscreen)</title>
+    <title>NextCast Compact Bar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -59,10 +59,10 @@
 
     <div v-if="mode === 'host'" class="flex flex-col h-full w-full absolute inset-0 bg-black">
         
-        <div class="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-blue-500/50 flex items-center gap-4 shadow-2xl">
+        <div class="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-blue-500/50 flex items-center gap-4 shadow-2xl scale-75 origin-top-right">
             <div class="text-right">
-                <p class="text-xs text-gray-400 uppercase tracking-wider">Room Code</p>
-                <p class="text-3xl font-mono font-bold text-blue-400">{{ myRoomId }}</p>
+                <p class="text-[10px] text-gray-400 uppercase tracking-wider">Room Code</p>
+                <p class="text-2xl font-mono font-bold text-blue-400">{{ myRoomId }}</p>
             </div>
             <i class="fa-solid fa-wifi text-green-500 animate-pulse"></i>
         </div>
@@ -91,19 +91,20 @@
             <div class="scanlines"></div>
         </div>
 
-        <div class="h-1/4 max-h-48 z-30 bg-gray-900/95 border-t border-gray-800 p-4 flex gap-6 overflow-hidden transition-all duration-500" :class="{'translate-y-full opacity-0': isFullscreen && false}"> <div class="min-w-[200px] border-r border-gray-700 pr-4">
-                <h3 class="text-blue-400 font-bold mb-2 uppercase text-xs">กำลังเล่น</h3>
-                <div v-if="currentVideo" class="truncate font-semibold text-lg">{{ currentVideo.title }}</div>
-                <div v-else class="text-gray-600 text-lg">- ว่าง -</div>
+        <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden transition-all duration-500">
+            <div class="min-w-[150px] max-w-[200px] border-r border-gray-700 pr-2 flex flex-col justify-center">
+                <h3 class="text-blue-400 font-bold uppercase text-[10px] mb-1">กำลังเล่น</h3>
+                <div v-if="currentVideo" class="truncate font-semibold text-sm text-white leading-tight">{{ currentVideo.title }}</div>
+                <div v-else class="text-gray-600 text-sm">- ว่าง -</div>
             </div>
-            <div class="flex-grow">
-                <h3 class="text-green-400 font-bold mb-2 uppercase text-xs">คิวถัดไป ({{ queue.length }})</h3>
-                <div class="flex gap-4 overflow-x-auto no-scrollbar pb-2 h-full items-center">
-                    <div v-for="(song, index) in queue" :key="index" class="flex-shrink-0 w-48 bg-gray-800 border border-gray-700 rounded p-2 text-sm hover:bg-gray-700 transition">
-                        <div class="truncate text-white font-medium">{{ song.title }}</div>
-                        <div class="text-xs text-gray-500 mt-1">Video Queue</div>
+            <div class="flex-grow flex flex-col justify-center">
+                <h3 class="text-green-400 font-bold uppercase text-[10px] mb-1">คิวถัดไป ({{ queue.length }})</h3>
+                <div class="flex gap-2 overflow-x-auto no-scrollbar items-center h-full">
+                    <div v-for="(song, index) in queue" :key="index" class="flex-shrink-0 w-40 bg-gray-800 border border-gray-700 rounded px-2 py-1 hover:bg-gray-700 transition flex flex-col justify-center h-[90%]">
+                        <div class="truncate text-gray-200 text-xs font-medium">{{ song.title }}</div>
+                        <div class="text-[10px] text-gray-500">#{{ index + 1 }}</div>
                     </div>
-                    <div v-if="queue.length === 0" class="text-gray-600 text-sm flex items-center">ไม่มีเพลงในคิว</div>
+                    <div v-if="queue.length === 0" class="text-gray-600 text-xs flex items-center px-2">ไม่มีเพลงในคิว</div>
                 </div>
             </div>
         </div>
@@ -183,21 +184,18 @@ createApp({
             conn: null, 
             connections: [],
             
-            // Player State
             player: null,
             queue: [],
             currentVideo: null,
             isPaused: false,
-            isFullscreen: false, // New State
+            isFullscreen: false, 
             
-            // Remote State
             remoteTab: 'add',
             linkInput: '',
             isLoading: false
         }
     },
     mounted() {
-        // Listen for escape key or other fullscreen changes
         document.addEventListener('fullscreenchange', this.checkFullscreen);
     },
     methods: {
@@ -216,11 +214,10 @@ createApp({
             this.loadYoutubeAPI();
         },
 
-        // New method for Fullscreen
         toggleFullscreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
-                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                    console.error(`Error attempting to enable full-screen mode: ${err.message}`);
                 });
             } else {
                 if (document.exitFullscreen) {
