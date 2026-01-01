@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NextCast Compact Bar</title>
+    <title>NextCast Fullscreen Logic</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -59,7 +59,8 @@
 
     <div v-if="mode === 'host'" class="flex flex-col h-full w-full absolute inset-0 bg-black">
         
-        <div class="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-blue-500/50 flex items-center gap-4 shadow-2xl scale-75 origin-top-right">
+        <div class="absolute top-4 right-4 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-blue-500/50 flex items-center gap-4 shadow-2xl scale-75 origin-top-right transition-all duration-500" 
+             :class="{'opacity-0 -translate-y-full': isFullscreen}">
             <div class="text-right">
                 <p class="text-[10px] text-gray-400 uppercase tracking-wider">Room Code</p>
                 <p class="text-2xl font-mono font-bold text-blue-400">{{ myRoomId }}</p>
@@ -88,15 +89,22 @@
                 <i class="fa-solid" :class="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
             </button>
 
+            <div v-if="currentVideo" class="absolute bottom-0 left-0 w-full h-1 bg-gray-800 z-40 pointer-events-none">
+                <div class="h-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)] transition-all duration-200 ease-linear" :style="{width: progress + '%'}"></div>
+            </div>
+
             <div class="scanlines"></div>
         </div>
 
-        <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden transition-all duration-500">
+        <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden transition-all duration-500 ease-in-out" 
+             :class="{'translate-y-full opacity-0': isFullscreen}">
+            
             <div class="min-w-[150px] max-w-[200px] border-r border-gray-700 pr-2 flex flex-col justify-center">
                 <h3 class="text-blue-400 font-bold uppercase text-[10px] mb-1">กำลังเล่น</h3>
                 <div v-if="currentVideo" class="truncate font-semibold text-sm text-white leading-tight">{{ currentVideo.title }}</div>
                 <div v-else class="text-gray-600 text-sm">- ว่าง -</div>
             </div>
+            
             <div class="flex-grow flex flex-col justify-center">
                 <h3 class="text-green-400 font-bold uppercase text-[10px] mb-1">คิวถัดไป ({{ queue.length }})</h3>
                 <div class="flex gap-2 overflow-x-auto no-scrollbar items-center h-full">
@@ -188,7 +196,11 @@ createApp({
             queue: [],
             currentVideo: null,
             isPaused: false,
-            isFullscreen: false, 
+            isFullscreen: false,
+            
+            // Progress Bar Logic
+            progress: 0,
+            progressInterval: null,
             
             remoteTab: 'add',
             linkInput: '',
@@ -197,6 +209,9 @@ createApp({
     },
     mounted() {
         document.addEventListener('fullscreenchange', this.checkFullscreen);
+    },
+    beforeUnmount() {
+        this.stopProgressLoop();
     },
     methods: {
         // --- HOST LOGIC ---
@@ -273,12 +288,37 @@ createApp({
         },
 
         onPlayerStateChange(event) {
+            // 0: Ended, 1: Playing, 2: Paused
             if (event.data === 0) {
+                this.stopProgressLoop();
+                this.progress = 0;
                 this.playNext();
-            } else if (event.data === 2) {
-                this.isPaused = true;
             } else if (event.data === 1) {
                 this.isPaused = false;
+                this.startProgressLoop();
+            } else if (event.data === 2) {
+                this.isPaused = true;
+                this.stopProgressLoop();
+            }
+        },
+
+        startProgressLoop() {
+            this.stopProgressLoop(); // Clear existing
+            this.progressInterval = setInterval(() => {
+                if (this.player && this.player.getCurrentTime && this.player.getDuration) {
+                    const current = this.player.getCurrentTime();
+                    const duration = this.player.getDuration();
+                    if (duration > 0) {
+                        this.progress = (current / duration) * 100;
+                    }
+                }
+            }, 500); // Update every 0.5s
+        },
+
+        stopProgressLoop() {
+            if (this.progressInterval) {
+                clearInterval(this.progressInterval);
+                this.progressInterval = null;
             }
         },
 
@@ -294,11 +334,14 @@ createApp({
                 const nextSong = this.queue.shift();
                 this.currentVideo = nextSong;
                 this.isPaused = false;
+                this.progress = 0;
                 if (this.player && this.player.loadVideoById) {
                     this.player.loadVideoById(nextSong.videoId);
                 }
             } else {
                 this.currentVideo = null;
+                this.progress = 0;
+                this.stopProgressLoop();
                 if(this.player) this.player.stopVideo();
             }
             this.broadcastState();
