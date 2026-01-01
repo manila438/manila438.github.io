@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NextCast Fullscreen Logic</title>
+    <title>KARAOKE Remote Control</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -34,7 +34,7 @@
 
     <div v-if="mode === 'select'" class="flex flex-col items-center justify-center h-full space-y-8 p-4 text-center z-50 bg-gray-900">
         <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">
-            NEXTCAST LINK
+            KARAOKE LINK
         </h1>
         <p class="text-gray-400">ระบบคิวเพลงแบบวางลิงก์ YouTube</p>
         
@@ -143,6 +143,10 @@
                     <span v-if="isLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> กำลังประมวลผล...</span>
                     <span v-else><i class="fa-solid fa-plus-circle"></i> เพิ่มเข้าคิว</span>
                 </button>
+                <div v-if="addStatus" class="mt-4 p-3 bg-green-800/50 text-green-300 rounded text-center text-sm animate-fade-in-out">
+                    <i class="fa-solid fa-check"></i> {{ addStatus }}
+                </div>
+
                 <div class="mt-8 p-4 bg-gray-800 rounded-lg text-sm text-gray-400">
                     <p class="font-bold mb-2"><i class="fa-solid fa-circle-info text-blue-400"></i> วิธีใช้งาน:</p>
                     <ol class="list-decimal list-inside space-y-1">
@@ -164,13 +168,26 @@
                 </div>
             </div>
             <h3 class="text-gray-400 text-sm font-bold mb-2">คิวรอเล่น ({{ queue.length }})</h3>
+            
             <div class="flex-grow overflow-y-auto space-y-2 pb-20 no-scrollbar">
-                <div v-for="(song, idx) in queue" :key="idx" class="bg-gray-800 p-3 rounded flex justify-between items-center border-l-4 border-gray-600">
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <img :src="song.thumbnail" class="w-12 h-8 object-cover rounded bg-black">
+                <div v-for="(song, idx) in queue" :key="idx" class="bg-gray-800 p-2 rounded flex justify-between items-center border-l-4 border-gray-600">
+                    <div class="flex items-center gap-3 overflow-hidden flex-grow mr-2">
+                        <img :src="song.thumbnail" class="w-12 h-8 object-cover rounded bg-black flex-shrink-0">
                         <div class="truncate">
                             <div class="text-sm font-medium truncate">{{ idx + 1 }}. {{ song.title }}</div>
                         </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <button v-if="idx > 0" @click="sendCommand('moveQueue', {index: idx, direction: -1})" class="w-8 h-8 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center">
+                            <i class="fa-solid fa-chevron-up text-xs"></i>
+                        </button>
+                        <div v-else class="w-8 h-8"></div> <button v-if="idx < queue.length - 1" @click="sendCommand('moveQueue', {index: idx, direction: 1})" class="w-8 h-8 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </button>
+                        <div v-else class="w-8 h-8"></div> <button @click="sendCommand('removeQueue', {index: idx})" class="w-8 h-8 rounded bg-red-900/50 text-red-400 hover:bg-red-800 flex items-center justify-center ml-1">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
                     </div>
                 </div>
                 <div v-if="queue.length === 0" class="text-center py-8 text-gray-600">ยังไม่มีเพลงในคิว</div>
@@ -198,13 +215,14 @@ createApp({
             isPaused: false,
             isFullscreen: false,
             
-            // Progress Bar Logic
+            // Progress Bar
             progress: 0,
             progressInterval: null,
             
             remoteTab: 'add',
             linkInput: '',
-            isLoading: false
+            isLoading: false,
+            addStatus: '' // For toast message
         }
     },
     mounted() {
@@ -259,6 +277,23 @@ createApp({
                 if (this.player) this.player.playVideo();
             } else if (data.action === 'pause') {
                 if (this.player) this.player.pauseVideo();
+            } 
+            // NEW: Queue Management Commands
+            else if (data.action === 'moveQueue') {
+                const idx = data.index;
+                const dir = data.direction; // -1 (up) or 1 (down)
+                if (idx + dir >= 0 && idx + dir < this.queue.length) {
+                    // Swap elements
+                    const temp = this.queue[idx];
+                    this.queue[idx] = this.queue[idx + dir];
+                    this.queue[idx + dir] = temp;
+                    this.broadcastState();
+                }
+            } else if (data.action === 'removeQueue') {
+                if (data.index >= 0 && data.index < this.queue.length) {
+                    this.queue.splice(data.index, 1);
+                    this.broadcastState();
+                }
             }
         },
 
@@ -288,7 +323,6 @@ createApp({
         },
 
         onPlayerStateChange(event) {
-            // 0: Ended, 1: Playing, 2: Paused
             if (event.data === 0) {
                 this.stopProgressLoop();
                 this.progress = 0;
@@ -303,7 +337,7 @@ createApp({
         },
 
         startProgressLoop() {
-            this.stopProgressLoop(); // Clear existing
+            this.stopProgressLoop();
             this.progressInterval = setInterval(() => {
                 if (this.player && this.player.getCurrentTime && this.player.getDuration) {
                     const current = this.player.getCurrentTime();
@@ -312,7 +346,7 @@ createApp({
                         this.progress = (current / duration) * 100;
                     }
                 }
-            }, 500); // Update every 0.5s
+            }, 500);
         },
 
         stopProgressLoop() {
@@ -406,8 +440,10 @@ createApp({
 
         addToQueue(video) {
             this.sendCommand('addQueue', { video: video });
-            alert(`เพิ่มเพลง "${video.title}" แล้ว`);
-            this.remoteTab = 'queue';
+            // Show Status instead of Alert and Stay on page
+            this.addStatus = `เพิ่ม "${video.title}" เข้าคิวแล้ว`;
+            setTimeout(() => this.addStatus = '', 3000); 
+            // Removed: this.remoteTab = 'queue'; 
         },
 
         sendCommand(action, payload = {}) {
