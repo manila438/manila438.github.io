@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NextCast Link Player (Fixed Display)</title>
+    <title>NextCast Link Player (Fullscreen)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -14,21 +14,17 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Scanlines Effect */
         .scanlines {
             background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
             background-size: 100% 4px;
             position: absolute; pointer-events: none; top:0; left:0; right:0; bottom:0; z-index: 20;
         }
 
-        /* FORCE YOUTUBE IFRAME TO FILL SCREEN */
         .player-wrapper {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
         }
         .player-wrapper iframe {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover;
+            width: 100% !important; height: 100% !important; object-fit: cover;
         }
     </style>
 </head>
@@ -71,7 +67,7 @@
             <i class="fa-solid fa-wifi text-green-500 animate-pulse"></i>
         </div>
 
-        <div class="flex-grow relative bg-black w-full h-full overflow-hidden">
+        <div class="flex-grow relative bg-black w-full h-full overflow-hidden group">
             <div class="player-wrapper">
                 <div id="youtube-player"></div>
             </div>
@@ -88,11 +84,14 @@
                 </div>
             </div>
 
+            <button @click="toggleFullscreen" class="absolute bottom-6 right-6 z-50 bg-black/50 hover:bg-blue-600 text-white p-3 rounded-full backdrop-blur-sm transition duration-300 border border-white/20 shadow-lg group-hover:opacity-100 opacity-0 md:opacity-100">
+                <i class="fa-solid" :class="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+            </button>
+
             <div class="scanlines"></div>
         </div>
 
-        <div class="h-1/4 max-h-48 z-30 bg-gray-900/95 border-t border-gray-800 p-4 flex gap-6 overflow-hidden">
-            <div class="min-w-[200px] border-r border-gray-700 pr-4">
+        <div class="h-1/4 max-h-48 z-30 bg-gray-900/95 border-t border-gray-800 p-4 flex gap-6 overflow-hidden transition-all duration-500" :class="{'translate-y-full opacity-0': isFullscreen && false}"> <div class="min-w-[200px] border-r border-gray-700 pr-4">
                 <h3 class="text-blue-400 font-bold mb-2 uppercase text-xs">กำลังเล่น</h3>
                 <div v-if="currentVideo" class="truncate font-semibold text-lg">{{ currentVideo.title }}</div>
                 <div v-else class="text-gray-600 text-lg">- ว่าง -</div>
@@ -189,6 +188,7 @@ createApp({
             queue: [],
             currentVideo: null,
             isPaused: false,
+            isFullscreen: false, // New State
             
             // Remote State
             remoteTab: 'add',
@@ -196,24 +196,41 @@ createApp({
             isLoading: false
         }
     },
+    mounted() {
+        // Listen for escape key or other fullscreen changes
+        document.addEventListener('fullscreenchange', this.checkFullscreen);
+    },
     methods: {
         // --- HOST LOGIC ---
         startHost() {
             this.mode = 'host';
             this.myRoomId = Math.floor(1000 + Math.random() * 9000).toString();
             const peerId = `nextcast-karaoke-${this.myRoomId}`;
-            
             this.peer = new Peer(peerId);
-            
             this.peer.on('open', (id) => { console.log('Host initialized:', id); });
-
             this.peer.on('connection', (conn) => {
                 this.connections.push(conn);
                 conn.on('open', () => { this.broadcastState(); });
                 conn.on('data', (data) => { this.handleCommand(data); });
             });
-
             this.loadYoutubeAPI();
+        },
+
+        // New method for Fullscreen
+        toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        },
+
+        checkFullscreen() {
+            this.isFullscreen = !!document.fullscreenElement;
         },
 
         handleCommand(data) {
@@ -239,7 +256,7 @@ createApp({
         },
 
         loadYoutubeAPI() {
-            if (window.YT) return; // Already loaded
+            if (window.YT) return;
             const tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
             const firstScriptTag = document.getElementsByTagName('script')[0];
@@ -249,26 +266,16 @@ createApp({
                 this.player = new YT.Player('youtube-player', {
                     height: '100%', width: '100%',
                     playerVars: { 
-                        'autoplay': 1, 
-                        'controls': 0, 
-                        'rel': 0, 
-                        'fs': 0,
-                        'playsinline': 1 
+                        'autoplay': 1, 'controls': 0, 'rel': 0, 'fs': 0, 'playsinline': 1 
                     },
                     events: { 
-                        'onStateChange': this.onPlayerStateChange,
-                        'onReady': this.onPlayerReady
+                        'onStateChange': this.onPlayerStateChange
                     }
                 });
             };
         },
 
-        onPlayerReady(event) {
-            // Player is ready
-        },
-
         onPlayerStateChange(event) {
-            // 0: Ended, 1: Playing, 2: Paused
             if (event.data === 0) {
                 this.playNext();
             } else if (event.data === 2) {
@@ -304,7 +311,6 @@ createApp({
         connectToHost() {
             const peerId = `nextcast-karaoke-${this.targetRoomId}`;
             this.peer = new Peer(); 
-            
             this.peer.on('open', () => {
                 this.conn = this.peer.connect(peerId);
                 this.conn.on('open', () => {
@@ -343,7 +349,6 @@ createApp({
                     this.addToQueue(videoObj);
                     this.linkInput = '';
                 } catch (error) {
-                    // Fallback
                     const videoObj = {
                         videoId: videoId,
                         title: `Youtube Video (${videoId})`,
