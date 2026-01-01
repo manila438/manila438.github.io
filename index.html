@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KARAOKE Remote Control</title>
+    <title>Karaoke Controller</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -14,17 +14,24 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        .scanlines {
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
-            background-size: 100% 4px;
-            position: absolute; pointer-events: none; top:0; left:0; right:0; bottom:0; z-index: 20;
-        }
+        /* Scanlines removed */
 
         .player-wrapper {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
         }
         .player-wrapper iframe {
             width: 100% !important; height: 100% !important; object-fit: cover;
+        }
+        
+        /* Animation for Toast */
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        .animate-fade-in-out {
+            animation: fadeInOut 3s forwards;
         }
     </style>
 </head>
@@ -34,7 +41,7 @@
 
     <div v-if="mode === 'select'" class="flex flex-col items-center justify-center h-full space-y-8 p-4 text-center z-50 bg-gray-900">
         <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">
-            KARAOKE LINK
+            Karaoke Controller
         </h1>
         <p class="text-gray-400">ระบบคิวเพลงแบบวางลิงก์ YouTube</p>
         
@@ -93,11 +100,9 @@
                 <div class="h-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)] transition-all duration-200 ease-linear" :style="{width: progress + '%'}"></div>
             </div>
 
-            <div class="scanlines"></div>
-        </div>
+            </div>
 
-        <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden transition-all duration-500 ease-in-out" 
-             :class="{'translate-y-full opacity-0': isFullscreen}">
+        <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden">
             
             <div class="min-w-[150px] max-w-[200px] border-r border-gray-700 pr-2 flex flex-col justify-center">
                 <h3 class="text-blue-400 font-bold uppercase text-[10px] mb-1">กำลังเล่น</h3>
@@ -143,6 +148,7 @@
                     <span v-if="isLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> กำลังประมวลผล...</span>
                     <span v-else><i class="fa-solid fa-plus-circle"></i> เพิ่มเข้าคิว</span>
                 </button>
+                
                 <div v-if="addStatus" class="mt-4 p-3 bg-green-800/50 text-green-300 rounded text-center text-sm animate-fade-in-out">
                     <i class="fa-solid fa-check"></i> {{ addStatus }}
                 </div>
@@ -182,10 +188,14 @@
                         <button v-if="idx > 0" @click="sendCommand('moveQueue', {index: idx, direction: -1})" class="w-8 h-8 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center">
                             <i class="fa-solid fa-chevron-up text-xs"></i>
                         </button>
-                        <div v-else class="w-8 h-8"></div> <button v-if="idx < queue.length - 1" @click="sendCommand('moveQueue', {index: idx, direction: 1})" class="w-8 h-8 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center">
+                        <div v-else class="w-8 h-8"></div>
+
+                        <button v-if="idx < queue.length - 1" @click="sendCommand('moveQueue', {index: idx, direction: 1})" class="w-8 h-8 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center">
                             <i class="fa-solid fa-chevron-down text-xs"></i>
                         </button>
-                        <div v-else class="w-8 h-8"></div> <button @click="sendCommand('removeQueue', {index: idx})" class="w-8 h-8 rounded bg-red-900/50 text-red-400 hover:bg-red-800 flex items-center justify-center ml-1">
+                        <div v-else class="w-8 h-8"></div>
+
+                        <button @click="sendCommand('removeQueue', {index: idx})" class="w-8 h-8 rounded bg-red-900/50 text-red-400 hover:bg-red-800 flex items-center justify-center ml-1">
                             <i class="fa-solid fa-trash text-xs"></i>
                         </button>
                     </div>
@@ -222,7 +232,7 @@ createApp({
             remoteTab: 'add',
             linkInput: '',
             isLoading: false,
-            addStatus: '' // For toast message
+            addStatus: '' 
         }
     },
     mounted() {
@@ -278,12 +288,10 @@ createApp({
             } else if (data.action === 'pause') {
                 if (this.player) this.player.pauseVideo();
             } 
-            // NEW: Queue Management Commands
             else if (data.action === 'moveQueue') {
                 const idx = data.index;
-                const dir = data.direction; // -1 (up) or 1 (down)
+                const dir = data.direction;
                 if (idx + dir >= 0 && idx + dir < this.queue.length) {
-                    // Swap elements
                     const temp = this.queue[idx];
                     this.queue[idx] = this.queue[idx + dir];
                     this.queue[idx + dir] = temp;
@@ -440,10 +448,8 @@ createApp({
 
         addToQueue(video) {
             this.sendCommand('addQueue', { video: video });
-            // Show Status instead of Alert and Stay on page
             this.addStatus = `เพิ่ม "${video.title}" เข้าคิวแล้ว`;
             setTimeout(() => this.addStatus = '', 3000); 
-            // Removed: this.remoteTab = 'queue'; 
         },
 
         sendCommand(action, payload = {}) {
