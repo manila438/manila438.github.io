@@ -14,8 +14,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Scanlines removed */
-
         .player-wrapper {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
         }
@@ -23,7 +21,6 @@
             width: 100% !important; height: 100% !important; object-fit: cover;
         }
         
-        /* Animation for Toast */
         @keyframes fadeInOut {
             0% { opacity: 0; transform: translateY(10px); }
             10% { opacity: 1; transform: translateY(0); }
@@ -99,11 +96,9 @@
             <div v-if="currentVideo" class="absolute bottom-0 left-0 w-full h-1 bg-gray-800 z-40 pointer-events-none">
                 <div class="h-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)] transition-all duration-200 ease-linear" :style="{width: progress + '%'}"></div>
             </div>
-
-            </div>
+        </div>
 
         <div class="h-[12vh] min-h-[80px] z-30 bg-gray-900/95 border-t border-gray-800 p-2 flex gap-4 overflow-hidden">
-            
             <div class="min-w-[150px] max-w-[200px] border-r border-gray-700 pr-2 flex flex-col justify-center">
                 <h3 class="text-blue-400 font-bold uppercase text-[10px] mb-1">กำลังเล่น</h3>
                 <div v-if="currentVideo" class="truncate font-semibold text-sm text-white leading-tight">{{ currentVideo.title }}</div>
@@ -167,7 +162,10 @@
             <div class="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-4 mb-4 shadow-lg text-center">
                 <div class="text-xs text-blue-300 uppercase mb-1">กำลังเล่น</div>
                 <div class="font-bold text-white text-lg truncate mb-4">{{ currentVideo ? currentVideo.title : 'ไม่ได้เล่นเพลงอยู่' }}</div>
+                
                 <div class="flex justify-center gap-4">
+                    <button @click="sendCommand('replay')" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-rotate-left"></i></button>
+                    
                     <button @click="sendCommand('pause')" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-pause"></i></button>
                     <button @click="sendCommand('play')" class="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-play"></i></button>
                     <button @click="sendCommand('skip')" class="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg"><i class="fa-solid fa-forward-step"></i></button>
@@ -287,7 +285,13 @@ createApp({
                 if (this.player) this.player.playVideo();
             } else if (data.action === 'pause') {
                 if (this.player) this.player.pauseVideo();
-            } 
+            } else if (data.action === 'replay') {
+                // REPLAY LOGIC
+                if (this.player && this.player.seekTo) {
+                    this.player.seekTo(0);
+                    this.player.playVideo();
+                }
+            }
             else if (data.action === 'moveQueue') {
                 const idx = data.index;
                 const dir = data.direction;
