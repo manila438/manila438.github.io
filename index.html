@@ -41,10 +41,6 @@
             Karaoke Controller
         </h1>
         <p class="text-gray-400">ระบบคิวเพลงแบบวางลิงก์ YouTube</p>
-        
-        <div class="bg-yellow-900/30 text-yellow-200 p-2 text-xs rounded border border-yellow-700">
-            <i class="fa-solid fa-triangle-exclamation"></i> เพื่อให้ไม่มีโฆษณา กรุณาติดตั้ง Extension <b>uBlock Origin</b> บน Browser นี้
-        </div>
 
         <button @click="startHost" class="w-full max-w-sm py-4 bg-blue-700 hover:bg-blue-600 rounded-xl text-xl font-bold shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-3">
             <i class="fa-solid fa-tv"></i> เปิดเป็นจอทีวี (Player)
@@ -484,7 +480,7 @@ createApp({
 
         startHeartbeat() {
             this.stopHeartbeat();
-            // Send ping every 30 seconds to keep connection alive (Adjusted as requested)
+            // Send ping every 30 seconds to keep connection alive
             this.heartbeatInterval = setInterval(() => {
                 if (this.conn && this.conn.open) {
                     this.conn.send({ type: 'ping' });
